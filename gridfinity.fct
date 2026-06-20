@@ -30,6 +30,31 @@ const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cel
 const LIP_WIDTH  = 3.6 mm
 const LIP_HEIGHT = 4.5 mm
 
+# One Gridfinity foot: a rounded-rect footprint lofted through the chamfer
+# schedule. `width`/`depth` are the top (widest) footprint; corner radius
+# `radius` shrinks as the profile insets downward (offset preserves the
+# true Gridfinity taper). Bbox min at origin; spans Z [0, BASE_HEIGHT].
+fn footSolid(width, depth, radius Length) Solid {
+    var top    = Square(x: width, y: depth).Fillet(r: radius)
+    var midIn  = BASE_TOP_CHAMFER                       # inset at top of vertical wall
+    var botIn  = BASE_TOP_CHAMFER + BASE_BOTTOM_CHAMFER # inset at bottom
+    # profiles bottom->top; heights are absolute z-positions
+    return Loft(
+        profiles: [
+            top.Offset(delta: -botIn),  # z = 0    (bottom)
+            top.Offset(delta: -midIn),  # z = 0.8  (wall start)
+            top.Offset(delta: -midIn),  # z = 2.6  (wall end)
+            top                         # z = 4.75 (top, full)
+        ],
+        heights: [
+            0 mm,
+            BASE_BOTTOM_CHAMFER,
+            BASE_BOTTOM_CHAMFER + BASE_WALL,
+            BASE_HEIGHT
+        ]
+    )
+}
+
 # Keep a temporary entry so the file evaluates standalone during early tasks.
 fn Main() Solid {
     return Cube(s: 1 mm)
