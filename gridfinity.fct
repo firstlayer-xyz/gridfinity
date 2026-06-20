@@ -1,0 +1,4 @@
+fn Smoke() Solid {
+    var s = Square(x: 20 mm, y: 20 mm).Fillet(r: 3 mm)
+    return Loft(profiles: [s.Offset(delta: -3 mm), s], heights: [0 mm, 5 mm])
+}
