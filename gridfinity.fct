@@ -55,6 +55,25 @@ fn footSolid(width, depth, radius Length) Solid {
     )
 }
 
+# Tile one foot per cell on the GRID pitch. Each foot's footprint is
+# GRID-GAP, centered in its GRID cell (GAP/2 inset on every side).
+fn BinBase(x, y Number) Solid {
+    var foot = footSolid(width: GRID - GAP, depth: GRID - GAP, radius: FOOT_RADIUS)
+    var feet = for iy [0:<y], ix [0:<x] {
+        yield foot.Move(x: ix * GRID + GAP / 2, y: iy * GRID + GAP / 2)
+    }
+    return fold a, b feet { yield a + b }
+}
+
+# Full-cell pockets (the 0.25/side-larger negative a foot drops into).
+fn cellPockets(x, y Number) Solid {
+    var pocket = footSolid(width: GRID, depth: GRID, radius: POCKET_RADIUS)
+    var cells = for iy [0:<y], ix [0:<x] {
+        yield pocket.Move(x: ix * GRID, y: iy * GRID)
+    }
+    return fold a, b cells { yield a + b }
+}
+
 # Keep a temporary entry so the file evaluates standalone during early tasks.
 fn Main() Solid {
     return Cube(s: 1 mm)
