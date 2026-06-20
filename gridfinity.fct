@@ -1,4 +1,36 @@
-fn Smoke() Solid {
-    var s = Square(x: 20 mm, y: 20 mm).Fillet(r: 3 mm)
-    return Loft(profiles: [s.Offset(delta: -3 mm), s], heights: [0 mm, 5 mm])
+# Gridfinity — modular storage system (42mm grid, 7mm height units).
+# Spec: Zack Freedman's Gridfinity, cross-checked against
+# kennetek/gridfinity-rebuilt-openscad src/core/standard.scad.
+
+# --- Grid ---
+const GRID        = 42 mm   # X/Y cell pitch
+const HEIGHT_UNIT = 7 mm    # Z height unit
+const GAP         = 0.5 mm  # total bin<->baseplate clearance (0.25 per side)
+
+# --- Foot / base profile (bottom -> top) ---
+const BASE_BOTTOM_CHAMFER = 0.8 mm
+const BASE_WALL           = 1.8 mm
+const BASE_TOP_CHAMFER    = 2.15 mm
+const BASE_HEIGHT         = 4.75 mm  # = 0.8 + 1.8 + 2.15
+const FOOT_RADIUS         = 3.75 mm  # outer corner radius of a foot (footprint 41.5)
+const POCKET_RADIUS       = 4.0 mm   # foot + 0.25 -> baseplate pocket / lip receiver
+
+# --- Walls / floor ---
+const WALL  = 1.2 mm   # default outer + divider wall thickness (min 0.95)
+const FLOOR = 1.2 mm   # solid floor above the base
+
+# --- Magnet / screw holes ---
+const MAGNET_D   = 6.5 mm
+const MAGNET_H   = 2.4 mm
+const SCREW_D    = 3 mm
+const SCREW_H    = 6 mm
+const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cell)
+
+# --- Stacking lip ---
+const LIP_WIDTH  = 3.6 mm
+const LIP_HEIGHT = 4.5 mm
+
+# Keep a temporary entry so the file evaluates standalone during early tasks.
+fn Main() Solid {
+    return Cube(s: 1 mm)
 }
