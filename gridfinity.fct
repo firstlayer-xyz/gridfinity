@@ -194,6 +194,16 @@ fn Bin(
     return solid
 }
 
+# Baseplate: a slab with one full-cell pocket per cell cut into its top.
+fn Baseplate(x, y Number, magnets Bool = false, screws Bool = false) Solid {
+    var slab = roundedPrism(w: x * GRID, d: y * GRID, r: POCKET_RADIUS, h: BASE_HEIGHT)
+    var plate = slab - cellPockets(x: x, y: y)
+    if magnets || screws {
+        plate = plate - mountHoles(x: x, y: y, magnets: magnets, screws: screws)
+    }
+    return plate
+}
+
 # Keep a temporary entry so the file evaluates standalone during early tasks.
 fn Main() Solid {
     return Cube(s: 1 mm)
