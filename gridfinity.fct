@@ -106,6 +106,21 @@ fn StackingLip(x, y Number) Solid {
     return collar - recv
 }
 
+# Magnet/screw bores: 4 per cell at HOLE_INSET from each cell edge, rising
+# from the underside (z=0). Magnet bore Ø MAGNET_D deep MAGNET_H; screw bore
+# Ø SCREW_D deep SCREW_H (concentric). Only called when magnets || screws.
+fn mountHoles(x, y Number, magnets, screws Bool) Solid {
+    var offsets = [HOLE_INSET, GRID - HOLE_INSET]
+    var bores = for iy [0:<y], ix [0:<x], oy [0:<2], ox [0:<2] {
+        var cx = ix * GRID + offsets[ox]
+        var cy = iy * GRID + offsets[oy]
+        var mag = Cylinder(d: MAGNET_D, h: MAGNET_H).Move(x: cx, y: cy)
+        var scr = Cylinder(d: SCREW_D, h: SCREW_H).Move(x: cx, y: cy)
+        yield magnets && screws ? mag + scr : (magnets ? mag : scr)
+    }
+    return fold a, b bores { yield a + b }
+}
+
 # A Gridfinity bin. x,y are grid units; z is height units.
 fn Bin(
     x, y, z Number,
@@ -134,6 +149,10 @@ fn Bin(
 
     if lip {
         solid = solid + StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
+    }
+
+    if magnets || screws {
+        solid = solid - mountHoles(x: x, y: y, magnets: magnets, screws: screws)
     }
 
     return solid
