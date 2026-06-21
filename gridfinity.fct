@@ -79,6 +79,21 @@ fn roundedPrism(w, d, r, h Length) Solid {
     return Square(x: w, y: d).Fillet(r: r).Extrude(z: h)
 }
 
+# Negative cut volume for divX*divY compartments. The usable interior is the
+# outer footprint inset by WALL; dividers are WALL thick. Each compartment is
+# a rounded-rect pocket; corner radius is small so dividers stay sharp.
+fn Compartments(x, y Number, divX, divY Number, height Length) Solid {
+    var iw = x * GRID - GAP - 2 * WALL     # interior width
+    var id = y * GRID - GAP - 2 * WALL     # interior depth
+    var cw = (iw - (divX - 1) * WALL) / divX  # one compartment width
+    var cd = (id - (divY - 1) * WALL) / divY  # one compartment depth
+    var cells = for jy [0:<divY], jx [0:<divX] {
+        yield roundedPrism(w: cw, d: cd, r: 1 mm, h: height)
+            .Move(x: WALL + jx * (cw + WALL), y: WALL + jy * (cd + WALL))
+    }
+    return fold a, b cells { yield a + b }
+}
+
 # A Gridfinity bin. x,y are grid units; z is height units.
 fn Bin(
     x, y, z Number,
@@ -100,14 +115,10 @@ fn Bin(
         .Move(z: BASE_HEIGHT)
     var solid = base + walls
 
-    # single hollow cavity: interior inset by WALL, floor FLOOR above the base top
-    var cavity = roundedPrism(
-        w: fw - 2 * WALL,
-        d: fd - 2 * WALL,
-        r: FOOT_RADIUS - WALL,
-        h: H - BASE_HEIGHT - FLOOR + 1 mm    # +1 to cut cleanly through the top
-    ).Move(x: WALL, y: WALL, z: BASE_HEIGHT + FLOOR)
-    solid = solid - cavity
+    # interior: single cavity when undivided, else a compartment grid
+    var cavityH = H - BASE_HEIGHT - FLOOR + 1 mm
+    var cavity = divX == 1 && divY == 1 ? roundedPrism(w: fw - 2 * WALL, d: fd - 2 * WALL, r: FOOT_RADIUS - WALL, h: cavityH).Move(x: WALL, y: WALL) : Compartments(x: x, y: y, divX: divX, divY: divY, height: cavityH)
+    solid = solid - cavity.Move(z: BASE_HEIGHT + FLOOR)
 
     return solid
 }
