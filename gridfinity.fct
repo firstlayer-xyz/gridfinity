@@ -26,9 +26,8 @@ const SCREW_D    = 3 mm
 const SCREW_H    = 6 mm
 const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cell)
 
-# --- Stacking lip ---
-const LIP_WIDTH  = 3.6 mm
-const LIP_HEIGHT = 4.5 mm
+# --- Label tab ---
+const LABEL_DEPTH = 13 mm  # how far the label ledge protrudes (capped to interior)
 
 # One Gridfinity foot: a rounded-rect footprint lofted through the chamfer
 # schedule. `width`/`depth` are the top (widest) footprint; corner radius
@@ -121,6 +120,36 @@ fn mountHoles(x, y Number, magnets, screws Bool) Solid {
     return fold a, b bores { yield a + b }
 }
 
+# Scoop ramp: a concave quarter-round fillet along the FRONT interior wall (low
+# y), rising from the floor so parts slide out. Added to the bin. Radius is the
+# interior height (assumes z >= 1, i.e. a non-empty interior), capped to the
+# interior depth so it always fits.
+fn scoopRamp(x, y, z Number) Solid {
+    var iw = x * GRID - GAP - 2 * WALL
+    var id = y * GRID - GAP - 2 * WALL
+    var floorZ = BASE_HEIGHT + FLOOR
+    var interiorH = z * HEIGHT_UNIT - floorZ
+    var rampR = interiorH < id ? interiorH : id
+    var block = Cube(x: iw, y: rampR, z: rampR)
+    var cyl = Cylinder(r: rampR, h: iw + 2 mm).Rotate(y: -90 deg).Move(x: iw + 1 mm)
+    return (block - cyl).Move(x: WALL, y: WALL, z: floorZ)
+}
+
+# Label tab: a 45-degree triangular ledge along the BACK-top interior wall (high
+# y). A label rests on its flat top (flush with the bin top); the underside is
+# self-supporting at 45 degrees. Added to the bin. Depth is 13mm, capped to half
+# the interior depth.
+fn labelTab(x, y, z Number) Solid {
+    var iw = x * GRID - GAP - 2 * WALL
+    var id = y * GRID - GAP - 2 * WALL
+    var fd = y * GRID - GAP
+    var H  = z * HEIGHT_UNIT
+    var tabD = id / 2 < LABEL_DEPTH ? id / 2 : LABEL_DEPTH
+    var prof = Polygon(points: [Vec2{x: 0 mm, y: 0 mm}, Vec2{x: tabD, y: 0 mm}, Vec2{x: 0 mm, y: tabD}])
+    var bar = prof.Extrude(z: iw).Rotate(y: 90 deg).Rotate(z: 180 deg)
+    return bar.Move(x: WALL + iw, y: fd - WALL, z: H)
+}
+
 # A Gridfinity bin. x,y are grid units; z is height units.
 fn Bin(
     x, y, z Number,
@@ -146,6 +175,13 @@ fn Bin(
     var cavityH = H - BASE_HEIGHT - FLOOR + 1 mm
     var cavity = divX == 1 && divY == 1 ? roundedPrism(w: fw - 2 * WALL, d: fd - 2 * WALL, r: FOOT_RADIUS - WALL, h: cavityH).Move(x: WALL, y: WALL) : Compartments(x: x, y: y, divX: divX, divY: divY, height: cavityH)
     solid = solid - cavity.Move(z: BASE_HEIGHT + FLOOR)
+
+    if scoop {
+        solid = solid + scoopRamp(x: x, y: y, z: z)
+    }
+    if label {
+        solid = solid + labelTab(x: x, y: y, z: z)
+    }
 
     if lip {
         solid = solid + StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
