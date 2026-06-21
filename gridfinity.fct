@@ -56,11 +56,11 @@ fn footSolid(width, depth, radius Length) Solid {
 }
 
 # Tile one foot per cell on the GRID pitch. Each foot's footprint is
-# GRID-GAP, centered in its GRID cell (GAP/2 inset on every side).
+# GRID-GAP; feet are placed on the GRID pitch, corner-anchored at the origin.
 fn BinBase(x, y Number) Solid {
     var foot = footSolid(width: GRID - GAP, depth: GRID - GAP, radius: FOOT_RADIUS)
     var feet = for iy [0:<y], ix [0:<x] {
-        yield foot.Move(x: ix * GRID + GAP / 2, y: iy * GRID + GAP / 2)
+        yield foot.Move(x: ix * GRID, y: iy * GRID)
     }
     return fold a, b feet { yield a + b }
 }
