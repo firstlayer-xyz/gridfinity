@@ -36,24 +36,18 @@ const LABEL_TEXT_LAYER  = 0.4 mm  # thickness of the colored top layer of label 
 # `radius` shrinks as the profile insets downward (offset preserves the
 # true Gridfinity taper). Bbox min at origin; spans Z [0, BASE_HEIGHT].
 fn footSolid(width, depth, radius Length) Solid {
-    var top    = Square(x: width, y: depth).Fillet(r: radius)
-    var midIn  = BASE_TOP_CHAMFER                       # inset at top of vertical wall
-    var botIn  = BASE_TOP_CHAMFER + BASE_BOTTOM_CHAMFER # inset at bottom
-    # profiles bottom->top; heights are absolute z-positions
-    return Loft(
-        profiles: [
-            top.Offset(delta: -botIn),  # z = 0    (bottom)
-            top.Offset(delta: -midIn),  # z = 0.8  (wall start)
-            top.Offset(delta: -midIn),  # z = 2.6  (wall end)
-            top                         # z = 4.75 (top, full)
-        ],
-        heights: [
-            0 mm,
-            BASE_BOTTOM_CHAMFER,
-            BASE_BOTTOM_CHAMFER + BASE_WALL,
-            BASE_HEIGHT
-        ]
-    )
+    var top   = Square(x: width, y: depth).Fillet(r: radius)
+    var midIn = BASE_TOP_CHAMFER                       # inset at top of vertical wall
+    var botIn = BASE_TOP_CHAMFER + BASE_BOTTOM_CHAMFER # inset at bottom
+    # Thin slabs at each profile height; the hull between consecutive slabs makes
+    # a clean rounded-frustum chamfer. (Loft mis-pairs the corner-arc vertices of
+    # rounded profiles with different radii, collapsing them into chamfers.)
+    var t      = 0.01 mm
+    var bot    = top.Offset(delta: -botIn).Extrude(z: t)
+    var wallLo = top.Offset(delta: -midIn).Extrude(z: t).Move(z: BASE_BOTTOM_CHAMFER)
+    var wallHi = top.Offset(delta: -midIn).Extrude(z: t).Move(z: BASE_BOTTOM_CHAMFER + BASE_WALL)
+    var full   = top.Extrude(z: t).Move(z: BASE_HEIGHT - t)
+    return Hull(arr: [bot, wallLo]) + Hull(arr: [wallLo, wallHi]) + Hull(arr: [wallHi, full])
 }
 
 # Tile one foot per cell on the GRID pitch. Each foot's footprint is
