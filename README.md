@@ -8,14 +8,14 @@ to interoperate with real-world Gridfinity prints.
 ## Use
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@PIN"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.1.0"
 
 fn Main() Solid {
     return G.Bin(x: 2, y: 1, z: 3, divX: 2, scoop: true, label: true)
 }
 ```
 
-Pin `@PIN` to a commit SHA or release tag (e.g. `@v0.1.0`).
+Pin `@v0.1.0` to a commit SHA or release tag (e.g. `@v0.1.0`).
 
 ## API
 
@@ -49,7 +49,7 @@ The spec dimensions are importable consts: `GRID` (42 mm), `HEIGHT_UNIT`
 `LABEL_DEPTH`. For example, to lay parts out on the grid:
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@PIN"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.1.0"
 fn Main() Solid { return G.Bin(x: 1, y: 1, z: 6).Move(x: 2 * G.GRID) }
 ```
 
