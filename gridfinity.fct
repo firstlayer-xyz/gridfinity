@@ -74,6 +74,44 @@ fn cellPockets(x, y Number) Solid {
     return fold a, b cells { yield a + b }
 }
 
+# A rounded-rectangle prism, bbox min at origin.
+fn roundedPrism(w, d, r, h Length) Solid {
+    return Square(x: w, y: d).Fillet(r: r).Extrude(z: h)
+}
+
+# A Gridfinity bin. x,y are grid units; z is height units.
+fn Bin(
+    x, y, z Number,
+    divX Number = 1,
+    divY Number = 1,
+    lip Bool = true,
+    magnets Bool = false,
+    screws Bool = false,
+    scoop Bool = false,
+    label Bool = false,
+) Solid {
+    var fw = x * GRID - GAP
+    var fd = y * GRID - GAP
+    var H  = z * HEIGHT_UNIT
+
+    # base feet + outer walls above the base
+    var base  = BinBase(x: x, y: y)
+    var walls = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: H - BASE_HEIGHT)
+        .Move(z: BASE_HEIGHT)
+    var solid = base + walls
+
+    # single hollow cavity: interior inset by WALL, floor FLOOR above the base top
+    var cavity = roundedPrism(
+        w: fw - 2 * WALL,
+        d: fd - 2 * WALL,
+        r: FOOT_RADIUS - WALL,
+        h: H - BASE_HEIGHT - FLOOR + 1 mm    # +1 to cut cleanly through the top
+    ).Move(x: WALL, y: WALL, z: BASE_HEIGHT + FLOOR)
+    solid = solid - cavity
+
+    return solid
+}
+
 # Keep a temporary entry so the file evaluates standalone during early tasks.
 fn Main() Solid {
     return Cube(s: 1 mm)
