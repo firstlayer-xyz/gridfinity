@@ -94,6 +94,18 @@ fn Compartments(x, y Number, divX, divY Number, height Length) Solid {
     return fold a, b cells { yield a + b }
 }
 
+# Stacking lip: a collar at the bin footprint with ONE full-footprint
+# foot-shaped receiver carved out (widest at top, narrowing down), leaving a
+# perimeter chamfer ledge that a stacked bin's feet nest onto. Outer footprint
+# matches the bin; the center is open.
+fn StackingLip(x, y Number) Solid {
+    var fw = x * GRID - GAP
+    var fd = y * GRID - GAP
+    var collar = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: BASE_HEIGHT)
+    var recv = footSolid(width: fw, depth: fd, radius: FOOT_RADIUS)
+    return collar - recv
+}
+
 # A Gridfinity bin. x,y are grid units; z is height units.
 fn Bin(
     x, y, z Number,
@@ -119,6 +131,10 @@ fn Bin(
     var cavityH = H - BASE_HEIGHT - FLOOR + 1 mm
     var cavity = divX == 1 && divY == 1 ? roundedPrism(w: fw - 2 * WALL, d: fd - 2 * WALL, r: FOOT_RADIUS - WALL, h: cavityH).Move(x: WALL, y: WALL) : Compartments(x: x, y: y, divX: divX, divY: divY, height: cavityH)
     solid = solid - cavity.Move(z: BASE_HEIGHT + FLOOR)
+
+    if lip {
+        solid = solid + StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
+    }
 
     return solid
 }
