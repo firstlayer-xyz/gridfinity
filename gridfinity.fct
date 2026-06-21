@@ -27,7 +27,8 @@ const SCREW_H    = 6 mm
 const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cell)
 
 # --- Label tab ---
-const LABEL_DEPTH = 13 mm  # how far the label ledge protrudes (capped to interior)
+const LABEL_DEPTH       = 13 mm   # how far the label ledge protrudes (capped to interior)
+const LABEL_TEXT_MARGIN = 1.5 mm  # clear border around text on the tab top
 
 # One Gridfinity foot: a rounded-rect footprint lofted through the chamfer
 # schedule. `width`/`depth` are the top (widest) footprint; corner radius
@@ -150,6 +151,39 @@ fn labelTab(x, y, z Number) Solid {
     return bar.Move(x: WALL + iw, y: fd - WALL, z: H)
 }
 
+# 3D text seated on the label tab's flat top, auto-scaled to fit. `emboss` is the
+# signed relief: < 0 engraves a recess the bin subtracts; > 0 raises lettering the
+# bin unions. The glyphs are centered on the tab and uniformly scaled so the
+# longer dimension just fits within LABEL_TEXT_MARGIN of the shelf edges.
+fn labelText(x, y, z Number, text String, emboss Length, font String?) Solid {
+    var iw   = x * GRID - GAP - 2 * WALL
+    var id   = y * GRID - GAP - 2 * WALL
+    var fd   = y * GRID - GAP
+    var H    = z * HEIGHT_UNIT
+    var tabD = id / 2 < LABEL_DEPTH ? id / 2 : LABEL_DEPTH
+
+    var availW = iw - 2 * LABEL_TEXT_MARGIN
+    var availD = tabD - 2 * LABEL_TEXT_MARGIN
+
+    # center the glyphs on the origin via their bounds, then scale to fit
+    var raw      = Text(text: text, s: 10 mm, font: font)
+    var c        = raw.Center()
+    var centered = raw.Move(v: Vec2{x: -c.x, y: -c.y})
+    var b        = centered.Bounds()
+    var rw       = availW / b.Width()
+    var rd       = availD / b.Depth()
+    var fit      = rw < rd ? rw : rd
+    var glyphs   = centered.Scale(x: fit, y: fit)
+
+    # extrude to the relief magnitude and seat on the shelf: a band above the rim
+    # (emboss) or carved into the top (engrave)
+    var depth = emboss > 0 mm ? emboss : -emboss
+    var cx    = WALL + iw / 2
+    var cy    = fd - WALL - tabD / 2
+    var zPos  = emboss > 0 mm ? H : H - depth
+    return glyphs.Extrude(z: depth).Move(x: cx, y: cy, z: zPos)
+}
+
 # A Gridfinity bin. x,y are grid units; z is height units.
 fn Bin(
     x, y, z Number,
@@ -160,6 +194,9 @@ fn Bin(
     screws Bool = false,
     scoop Bool = false,
     label Bool = false,
+    text String = "",          # label text; non-empty implies the shelf
+    emboss Length = -0.6 mm,   # signed relief: < 0 engrave, > 0 emboss, 0 flat
+    font String?,              # optional .ttf/.otf path for the label text
 ) Solid {
     var fw = x * GRID - GAP
     var fd = y * GRID - GAP
@@ -179,8 +216,12 @@ fn Bin(
     if scoop {
         solid = solid + scoopRamp(x: x, y: y, z: z)
     }
-    if label {
+    if label || text != "" {
         solid = solid + labelTab(x: x, y: y, z: z)
+    }
+    if text != "" && emboss != 0 mm {
+        var glyphs = labelText(x: x, y: y, z: z, text: text, emboss: emboss, font: font)
+        solid = emboss > 0 mm ? solid + glyphs : solid - glyphs
     }
 
     if lip {

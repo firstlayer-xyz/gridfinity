@@ -8,18 +8,18 @@ to interoperate with real-world Gridfinity prints.
 ## Use
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@v0.1.0"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
 
 fn Main() Solid {
-    return G.Bin(x: 2, y: 1, z: 3, divX: 2, scoop: true, label: true)
+    return G.Bin(x: 2, y: 1, z: 3, divX: 2, scoop: true, text: "M3")
 }
 ```
 
-Pin `@v0.1.0` to a commit SHA or release tag (e.g. `@v0.1.0`).
+Pin `@v0.2.0` to a commit SHA or release tag (e.g. `@v0.2.0`).
 
 ## API
 
-### `Bin(x, y, z, divX=1, divY=1, lip=true, magnets=false, screws=false, scoop=false, label=false) Solid`
+### `Bin(x, y, z, divX=1, divY=1, lip=true, magnets=false, screws=false, scoop=false, label=false, text="", emboss=-0.6mm, font?) Solid`
 
 A storage bin. `x, y` are grid units; `z` is height units — total height is
 `z × 7 mm` (the stacking lip is carved into the top, so it does not add height).
@@ -31,6 +31,9 @@ A storage bin. `x, y` are grid units; `z` is height units — total height is
 | `magnets`, `screws` | Ø6.5 mm magnet bores / Ø3 mm screw bores in the feet |
 | `scoop` | curved scoop ramp at the front for scooping parts out |
 | `label` | 45° label shelf at the back |
+| `text` | text on the label shelf, auto-sized to fit (a non-empty `text` adds the shelf) |
+| `emboss` | signed relief for `text`: `< 0` engraves (default `-0.6 mm`, flush with the rim), `> 0` raises it, `0` leaves the shelf flat |
+| `font` | optional `.ttf`/`.otf` path for `text` (defaults to the built-in font) |
 
 ### `Baseplate(x, y, magnets=false, screws=false) Solid`
 
@@ -39,17 +42,17 @@ An `x × y` cell baseplate that bins snap into.
 ### Building blocks (exposed for composing custom parts)
 
 `footSolid`, `BinBase`, `cellPockets`, `StackingLip`, `Compartments`,
-`mountHoles`, `scoopRamp`, `labelTab`, `roundedPrism`.
+`mountHoles`, `scoopRamp`, `labelTab`, `labelText`, `roundedPrism`.
 
 ### Constants
 
 The spec dimensions are importable consts: `GRID` (42 mm), `HEIGHT_UNIT`
 (7 mm), `GAP`, `BASE_HEIGHT` (4.75 mm), `FOOT_RADIUS`, `POCKET_RADIUS`, `WALL`,
 `FLOOR`, `MAGNET_D`, `MAGNET_H`, `SCREW_D`, `SCREW_H`, `HOLE_INSET`,
-`LABEL_DEPTH`. For example, to lay parts out on the grid:
+`LABEL_DEPTH`, `LABEL_TEXT_MARGIN`. For example, to lay parts out on the grid:
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@v0.1.0"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
 fn Main() Solid { return G.Bin(x: 1, y: 1, z: 6).Move(x: 2 * G.GRID) }
 ```
 

@@ -1,0 +1,6 @@
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
+
+fn Main() Solid {
+    # Engraved label by default; pass `emboss: 0.8 mm` for raised lettering.
+    return G.Bin(x: 2, y: 1, z: 3, text: "M3", scoop: true)
+}
