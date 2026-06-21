@@ -8,32 +8,45 @@ to interoperate with real-world Gridfinity prints.
 ## Use
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.3.0"
 
 fn Main() Solid {
-    return G.Bin(x: 2, y: 1, z: 3, divX: 2, scoop: true, text: "M3")
+    return G.Bin{x: 2, y: 1, z: 3, divX: 2, scoop: true, text: "M3"}.Solid()
 }
 ```
 
-Pin `@v0.2.0` to a commit SHA or release tag (e.g. `@v0.2.0`).
+Pin `@v0.3.0` to a commit SHA or release tag (e.g. `@v0.3.0`).
 
 ## API
 
-### `Bin(x, y, z, divX=1, divY=1, lip=true, magnets=false, screws=false, scoop=false, label=false, text="", emboss=-0.6mm, font?) Solid`
+### `Bin{...}.Solid() Solid`
 
-A storage bin. `x, y` are grid units; `z` is height units — total height is
-`z × 7 mm` (the stacking lip is carved into the top, so it does not add height).
+A storage bin, built as a struct and rendered with `.Solid()`. `x, y` are grid
+units (required); `z` is height units — total height is `z × 7 mm` (the stacking
+lip is carved into the top, so it does not add height). Every other field has a
+default.
 
-| param | meaning |
+```
+G.Bin{x: 3, y: 1, z: 4, text: "M3",
+      bodyColor: Color(hex: "#333"), labelColor: Color(hex: "#fff")}.Solid()
+```
+
+| field | meaning |
 |---|---|
+| `x`, `y`, `z` | size: `x × y` grid cells, `z` height units (required) |
 | `divX`, `divY` | split the interior into a grid of compartments |
-| `lip` | stacking lip so bins stack on each other |
+| `lip` | stacking lip so bins stack on each other (default `true`) |
 | `magnets`, `screws` | Ø6.5 mm magnet bores / Ø3 mm screw bores in the feet |
 | `scoop` | curved scoop ramp at the front for scooping parts out |
 | `label` | 45° label shelf at the back |
 | `text` | text on the label shelf, auto-sized to fit (a non-empty `text` adds the shelf) |
 | `emboss` | signed relief for `text`: `< 0` engraves (default `-0.6 mm`, flush with the rim), `> 0` raises it, `0` leaves the shelf flat |
 | `font` | optional `.ttf`/`.otf` path for `text` (defaults to the built-in font) |
+| `bodyColor`, `footColor`, `lipColor`, `labelColor` | optional `Color` per part; unset (nil) leaves a part its default material |
+
+`labelColor` colours only the text's top readable layer (the raised cap, the
+engraved floor, or the flush inlay, depending on `emboss`); the relief that
+connects it to the bin keeps `bodyColor`.
 
 ### `Baseplate(x, y, magnets=false, screws=false) Solid`
 
@@ -42,18 +55,20 @@ An `x × y` cell baseplate that bins snap into.
 ### Building blocks (exposed for composing custom parts)
 
 `footSolid`, `BinBase`, `cellPockets`, `StackingLip`, `Compartments`,
-`mountHoles`, `scoopRamp`, `labelTab`, `labelText`, `roundedPrism`.
+`mountHoles`, `scoopRamp`, `labelTab`, `labelGlyphs`, `roundedPrism`,
+`colorize`.
 
 ### Constants
 
 The spec dimensions are importable consts: `GRID` (42 mm), `HEIGHT_UNIT`
 (7 mm), `GAP`, `BASE_HEIGHT` (4.75 mm), `FOOT_RADIUS`, `POCKET_RADIUS`, `WALL`,
 `FLOOR`, `MAGNET_D`, `MAGNET_H`, `SCREW_D`, `SCREW_H`, `HOLE_INSET`,
-`LABEL_DEPTH`, `LABEL_TEXT_MARGIN`. For example, to lay parts out on the grid:
+`LABEL_DEPTH`, `LABEL_TEXT_MARGIN`, `LABEL_TEXT_LAYER`. For example, to lay
+parts out on the grid:
 
 ```
-var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
-fn Main() Solid { return G.Bin(x: 1, y: 1, z: 6).Move(x: 2 * G.GRID) }
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.3.0"
+fn Main() Solid { return G.Bin{x: 1, y: 1, z: 6}.Solid().Move(x: 2 * G.GRID) }
 ```
 
 ## Dimensions

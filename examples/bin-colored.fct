@@ -1,0 +1,13 @@
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.3.0"
+
+fn Main() Solid {
+    # Each part takes its own optional colour; the white label reads on the dark
+    # body. labelColor sits only on the text's top layer.
+    return G.Bin{
+        x: 3, y: 1, z: 4, divX: 3, scoop: true, text: "M3",
+        bodyColor: Color(hex: "#333333"),
+        footColor: Color(hex: "#0066cc"),
+        lipColor: Color(hex: "#00aa44"),
+        labelColor: Color(hex: "#ffffff"),
+    }.Solid()
+}

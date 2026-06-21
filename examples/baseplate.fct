@@ -1,4 +1,4 @@
-var G = lib "github.com/firstlayer-xyz/gridfinity@v0.2.0"
+var G = lib "github.com/firstlayer-xyz/gridfinity@v0.3.0"
 
 fn Main() Solid {
     return G.Baseplate(x: 4, y: 4, magnets: true)

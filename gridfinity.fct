@@ -29,6 +29,7 @@ const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cel
 # --- Label tab ---
 const LABEL_DEPTH       = 13 mm   # how far the label ledge protrudes (capped to interior)
 const LABEL_TEXT_MARGIN = 1.5 mm  # clear border around text on the tab top
+const LABEL_TEXT_LAYER  = 0.4 mm  # thickness of the colored top layer of label text
 
 # One Gridfinity foot: a rounded-rect footprint lofted through the chamfer
 # schedule. `width`/`depth` are the top (widest) footprint; corner radius
@@ -151,21 +152,24 @@ fn labelTab(x, y, z Number) Solid {
     return bar.Move(x: WALL + iw, y: fd - WALL, z: H)
 }
 
-# 3D text seated on the label tab's flat top, auto-scaled to fit. `emboss` is the
-# signed relief: < 0 engraves a recess the bin subtracts; > 0 raises lettering the
-# bin unions. The glyphs are centered on the tab and uniformly scaled so the
-# longer dimension just fits within LABEL_TEXT_MARGIN of the shelf edges.
-fn labelText(x, y, z Number, text String, emboss Length, font String?) Solid {
+# Colors `s` with `c` when `c` is set; leaves the default material when nil.
+fn colorize(s Solid, c Color?) Solid {
+    if var cc = c { return s.Color(c: cc) }
+    return s
+}
+
+# Auto-fit label glyphs as a 2D sketch, centered on the tab's flat top (xy plane,
+# z = 0). The text is uniformly scaled so its longer dimension just fits within
+# LABEL_TEXT_MARGIN of the shelf edges. Extrude into a z-band to make relief.
+fn labelGlyphs(x, y Number, text String, font String?) Sketch {
     var iw   = x * GRID - GAP - 2 * WALL
     var id   = y * GRID - GAP - 2 * WALL
     var fd   = y * GRID - GAP
-    var H    = z * HEIGHT_UNIT
     var tabD = id / 2 < LABEL_DEPTH ? id / 2 : LABEL_DEPTH
 
     var availW = iw - 2 * LABEL_TEXT_MARGIN
     var availD = tabD - 2 * LABEL_TEXT_MARGIN
 
-    # center the glyphs on the origin via their bounds, then scale to fit
     var raw      = Text(text: text, s: 10 mm, font: font)
     var c        = raw.Center()
     var centered = raw.Move(v: Vec2{x: -c.x, y: -c.y})
@@ -175,64 +179,111 @@ fn labelText(x, y, z Number, text String, emboss Length, font String?) Solid {
     var fit      = rw < rd ? rw : rd
     var glyphs   = centered.Scale(x: fit, y: fit)
 
-    # extrude to the relief magnitude and seat on the shelf: a band above the rim
-    # (emboss) or carved into the top (engrave)
-    var depth = emboss > 0 mm ? emboss : -emboss
-    var cx    = WALL + iw / 2
-    var cy    = fd - WALL - tabD / 2
-    var zPos  = emboss > 0 mm ? H : H - depth
-    return glyphs.Extrude(z: depth).Move(x: cx, y: cy, z: zPos)
+    var cx = WALL + iw / 2
+    var cy = fd - WALL - tabD / 2
+    return glyphs.Move(v: Vec2{x: cx, y: cy})
 }
 
-# A Gridfinity bin. x,y are grid units; z is height units.
-fn Bin(
-    x, y, z Number,
-    divX Number = 1,
-    divY Number = 1,
-    lip Bool = true,
-    magnets Bool = false,
-    screws Bool = false,
-    scoop Bool = false,
-    label Bool = false,
-    text String = "",          # label text; non-empty implies the shelf
-    emboss Length = -0.6 mm,   # signed relief: < 0 engrave, > 0 emboss, 0 flat
-    font String?,              # optional .ttf/.otf path for the label text
-) Solid {
+# A Gridfinity bin. `x, y` are grid units; `z` is height units. Build with a
+# struct literal and render with `.Solid()`:
+#     Bin{x: 2, y: 1, z: 3, text: "M3"}.Solid()
+# Per-part colors are optional (nil = the part's default material). `labelColor`
+# sits only on the text's top readable layer; the relief connector stays
+# `bodyColor`. `emboss` is the signed text relief: < 0 engrave, > 0 emboss, 0 flat.
+type Bin {
+    x Number
+    y Number
+    z Number
+    divX Number = 1
+    divY Number = 1
+    lip Bool = true
+    magnets Bool = false
+    screws Bool = false
+    scoop Bool = false
+    label Bool = false
+    text String = ""
+    emboss Length = -0.6 mm
+    font String?
+    bodyColor Color?
+    footColor Color?
+    lipColor Color?
+    labelColor Color?
+}
+
+fn Bin.Solid() Solid {
+    var x = self.x
+    var y = self.y
+    var z = self.z
     var fw = x * GRID - GAP
     var fd = y * GRID - GAP
     var H  = z * HEIGHT_UNIT
+    var hasText = self.text != ""
+    var em = self.emboss
 
-    # base feet + outer walls above the base
-    var base  = BinBase(x: x, y: y)
-    var walls = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: H - BASE_HEIGHT)
+    # feet (base) — coloured independently from the upper body
+    var feet = BinBase(x: x, y: y)
+
+    # body: outer walls above the base, minus the interior cavity, plus the
+    # scoop / label shelf / text relief connector
+    var body = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: H - BASE_HEIGHT)
         .Move(z: BASE_HEIGHT)
-    var solid = base + walls
-
-    # interior: single cavity when undivided, else a compartment grid
     var cavityH = H - BASE_HEIGHT - FLOOR + 1 mm
-    var cavity = divX == 1 && divY == 1 ? roundedPrism(w: fw - 2 * WALL, d: fd - 2 * WALL, r: FOOT_RADIUS - WALL, h: cavityH).Move(x: WALL, y: WALL) : Compartments(x: x, y: y, divX: divX, divY: divY, height: cavityH)
-    solid = solid - cavity.Move(z: BASE_HEIGHT + FLOOR)
-
-    if scoop {
-        solid = solid + scoopRamp(x: x, y: y, z: z)
+    var cavity = self.divX == 1 && self.divY == 1 ? roundedPrism(w: fw - 2 * WALL, d: fd - 2 * WALL, r: FOOT_RADIUS - WALL, h: cavityH).Move(x: WALL, y: WALL) : Compartments(x: x, y: y, divX: self.divX, divY: self.divY, height: cavityH)
+    body = body - cavity.Move(z: BASE_HEIGHT + FLOOR)
+    if self.scoop {
+        body = body + scoopRamp(x: x, y: y, z: z)
     }
-    if label || text != "" {
-        solid = solid + labelTab(x: x, y: y, z: z)
-    }
-    if text != "" && emboss != 0 mm {
-        var glyphs = labelText(x: x, y: y, z: z, text: text, emboss: emboss, font: font)
-        solid = emboss > 0 mm ? solid + glyphs : solid - glyphs
+    if self.label || hasText {
+        body = body + labelTab(x: x, y: y, z: z)
     }
 
-    if lip {
-        solid = solid + StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
+    # Text relief connector folds into the body so it takes `bodyColor`; the
+    # readable top layer is a separate `labelColor` tile added after colouring.
+    if hasText {
+        var g       = labelGlyphs(x: x, y: y, text: self.text, font: self.font)
+        var colored = self.labelColor != nil
+        var d       = em > 0 mm ? em : -em                                         # relief magnitude
+        var t       = em == 0 mm ? LABEL_TEXT_LAYER : (LABEL_TEXT_LAYER < d ? LABEL_TEXT_LAYER : d)
+        if em > 0 mm {
+            var rh = colored ? d - t : d                                            # riser height
+            if rh > 0 mm {
+                body = body + g.Extrude(z: rh).Move(z: H)
+            }
+        }
+        if em < 0 mm {
+            body = body - g.Extrude(z: d).Move(z: H - d)
+        }
+        if em == 0 mm && colored {
+            body = body - g.Extrude(z: t).Move(z: H - t)
+        }
     }
 
-    if magnets || screws {
-        solid = solid - mountHoles(x: x, y: y, magnets: magnets, screws: screws)
+    # magnet / screw bores pass through both feet and body
+    if self.magnets || self.screws {
+        var holes = mountHoles(x: x, y: y, magnets: self.magnets, screws: self.screws)
+        feet = feet - holes
+        body = body - holes
     }
 
-    return solid
+    var result = colorize(s: feet, c: self.footColor) + colorize(s: body, c: self.bodyColor)
+
+    if self.lip {
+        var lipPart = StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
+        result = result + colorize(s: lipPart, c: self.lipColor)
+    }
+
+    # coloured top readable layer of the text (raised cap / engraved floor / flush inlay)
+    if hasText {
+        if var lc = self.labelColor {
+            var g     = labelGlyphs(x: x, y: y, text: self.text, font: self.font)
+            var d     = em > 0 mm ? em : -em
+            var t     = em == 0 mm ? LABEL_TEXT_LAYER : (LABEL_TEXT_LAYER < d ? LABEL_TEXT_LAYER : d)
+            var tileZ = em > 0 mm ? H + d - t : (em < 0 mm ? H - d : H - t)
+            result = result + g.Extrude(z: t).Move(z: tileZ).Color(c: lc)
+        }
+    }
+
+    return result
 }
 
 # Baseplate: a slab with one full-cell pocket per cell cut into its top.
