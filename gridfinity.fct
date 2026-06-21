@@ -203,8 +203,3 @@ fn Baseplate(x, y Number, magnets Bool = false, screws Bool = false) Solid {
     }
     return plate
 }
-
-# Keep a temporary entry so the file evaluates standalone during early tasks.
-fn Main() Solid {
-    return Cube(s: 1 mm)
-}

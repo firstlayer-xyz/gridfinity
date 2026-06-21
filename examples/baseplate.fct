@@ -1,0 +1,5 @@
+var G = lib "github.com/firstlayer-xyz/gridfinity@PIN"
+
+fn Main() Solid {
+    return G.Baseplate(x: 4, y: 4, magnets: true)
+}

@@ -1,0 +1,5 @@
+var G = lib "github.com/firstlayer-xyz/gridfinity@PIN"
+
+fn Main() Solid {
+    return G.Bin(x: 1, y: 1, z: 3, magnets: true, screws: true)
+}
