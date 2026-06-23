@@ -1,6 +1,8 @@
 var G = lib "github.com/firstlayer-xyz/gridfinity@v0.3.0"
 
-fn Main() Solid {
+fn Main(
+    label String = "M3" where [],
+) Solid {
     # Engraved label by default; pass `emboss: 0.8 mm` for raised lettering.
-    return G.Bin{x: 2, y: 1, z: 3, text: "M3", scoop: true}.Solid()
+    return G.Bin{x: 2, y: 1, z: 3, text: label, scoop: true}.Solid()
 }

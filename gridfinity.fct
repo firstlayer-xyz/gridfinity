@@ -15,6 +15,12 @@ const BASE_HEIGHT         = 4.75 mm  # = 0.8 + 1.8 + 2.15
 const FOOT_RADIUS         = 3.75 mm  # outer corner radius of a foot (footprint 41.5)
 const POCKET_RADIUS       = 4.0 mm   # foot + 0.25 -> baseplate pocket / lip receiver
 
+# --- Stacking lip (kennetek STACKING_LIP_LINE) — the foot-mating rim profile ---
+const LIP_BOT_CHAMFER = 0.7 mm
+const LIP_WALL        = 1.8 mm
+const LIP_TOP_CHAMFER = 1.9 mm
+const LIP_HEIGHT      = 4.4 mm   # 0.7 + 1.8 + 1.9
+
 # --- Walls / floor ---
 const WALL  = 1.2 mm   # default outer + divider wall thickness (min 0.95)
 const FLOOR = 1.2 mm   # solid floor above the base
@@ -24,30 +30,39 @@ const MAGNET_D   = 6.5 mm
 const MAGNET_H   = 2.4 mm
 const SCREW_D    = 3 mm
 const SCREW_H    = 6 mm
-const HOLE_INSET = 8 mm  # hole center distance from each cell edge (4 holes/cell)
+const HOLE_INSET = 8 mm   # hole center distance from each cell edge (4 holes/cell)
+const HOLE_SEAL  = 0.6 mm # solid floor kept above the bores so they stay blind
 
 # --- Label tab ---
 const LABEL_DEPTH       = 13 mm   # how far the label ledge protrudes (capped to interior)
 const LABEL_TEXT_MARGIN = 1.5 mm  # clear border around text on the tab top
 const LABEL_TEXT_LAYER  = 0.4 mm  # thickness of the colored top layer of label text
 
-# One Gridfinity foot: a rounded-rect footprint lofted through the chamfer
-# schedule. `width`/`depth` are the top (widest) footprint; corner radius
-# `radius` shrinks as the profile insets downward (offset preserves the
-# true Gridfinity taper). Bbox min at origin; spans Z [0, BASE_HEIGHT].
-fn footSolid(width, depth, radius Length) Solid {
+# A rounded-rect prism with a bottom chamfer, a vertical wall, and a top chamfer
+# (the Gridfinity taper). `width`/`depth`/`radius` are the top (widest, full)
+# footprint; the profile insets — and its corner radius shrinks — going down.
+# Built from the hull of thin rounded-rect slabs at each profile height: Loft
+# mis-pairs the corner-arc vertices of rounded profiles with different radii and
+# collapses them into chamfers, so hull keeps the corners round. Bbox min at
+# origin; spans Z [0, botChamfer + wall + topChamfer], widest at the top.
+fn chamferedPrism(width, depth, radius, botChamfer, wall, topChamfer Length) Solid {
     var top   = Square(x: width, y: depth).Fillet(r: radius)
-    var midIn = BASE_TOP_CHAMFER                       # inset at top of vertical wall
-    var botIn = BASE_TOP_CHAMFER + BASE_BOTTOM_CHAMFER # inset at bottom
-    # Thin slabs at each profile height; the hull between consecutive slabs makes
-    # a clean rounded-frustum chamfer. (Loft mis-pairs the corner-arc vertices of
-    # rounded profiles with different radii, collapsing them into chamfers.)
+    var midIn = topChamfer               # inset at the top of the vertical wall
+    var botIn = topChamfer + botChamfer  # inset at the bottom
+    var h     = botChamfer + wall + topChamfer
     var t      = 0.01 mm
     var bot    = top.Offset(delta: -botIn).Extrude(z: t)
-    var wallLo = top.Offset(delta: -midIn).Extrude(z: t).Move(z: BASE_BOTTOM_CHAMFER)
-    var wallHi = top.Offset(delta: -midIn).Extrude(z: t).Move(z: BASE_BOTTOM_CHAMFER + BASE_WALL)
-    var full   = top.Extrude(z: t).Move(z: BASE_HEIGHT - t)
+    var wallLo = top.Offset(delta: -midIn).Extrude(z: t).Move(z: botChamfer)
+    var wallHi = top.Offset(delta: -midIn).Extrude(z: t).Move(z: botChamfer + wall)
+    var full   = top.Extrude(z: t).Move(z: h - t)
     return Hull(arr: [bot, wallLo]) + Hull(arr: [wallLo, wallHi]) + Hull(arr: [wallHi, full])
+}
+
+# One Gridfinity foot: the base chamfer schedule. Bbox min at origin; spans
+# Z [0, BASE_HEIGHT].
+fn footSolid(width, depth, radius Length) Solid {
+    return chamferedPrism(width: width, depth: depth, radius: radius,
+        botChamfer: BASE_BOTTOM_CHAMFER, wall: BASE_WALL, topChamfer: BASE_TOP_CHAMFER)
 }
 
 # Tile one foot per cell on the GRID pitch. Each foot's footprint is
@@ -96,21 +111,32 @@ fn Compartments(x, y Number, divX, divY Number, height Length) Solid {
 fn StackingLip(x, y Number) Solid {
     var fw = x * GRID - GAP
     var fd = y * GRID - GAP
-    var collar = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: BASE_HEIGHT)
-    var recv = footSolid(width: fw, depth: fd, radius: FOOT_RADIUS)
+    var collar = roundedPrism(w: fw, d: fd, r: FOOT_RADIUS, h: LIP_HEIGHT)
+    # foot-mating receiver: the kennetek lip profile (clearance vs the base foot)
+    var recv = chamferedPrism(width: fw, depth: fd, radius: FOOT_RADIUS,
+        botChamfer: LIP_BOT_CHAMFER, wall: LIP_WALL, topChamfer: LIP_TOP_CHAMFER)
     return collar - recv
 }
 
 # Magnet/screw bores: 4 per cell at HOLE_INSET from each cell edge, rising
 # from the underside (z=0). Magnet bore Ø MAGNET_D deep MAGNET_H; screw bore
-# Ø SCREW_D deep SCREW_H (concentric). Only called when magnets || screws.
+# Ø SCREW_D deep SCREW_H (concentric). Bores are capped so a SEAL of solid
+# floor always remains above them — the screw depth (6mm) otherwise pokes
+# through the base+floor (5.95mm) into the bin interior. Only called when
+# magnets || screws.
 fn mountHoles(x, y Number, magnets, screws Bool) Solid {
     var offsets = [HOLE_INSET, GRID - HOLE_INSET]
+    var maxH = BASE_HEIGHT + FLOOR - HOLE_SEAL          # keep a sealed floor above the bores
+    var scrH = SCREW_H < maxH ? SCREW_H : maxH
+    var magH = MAGNET_H < maxH ? MAGNET_H : maxH
     var bores = for iy [0:<y], ix [0:<x], oy [0:<2], ox [0:<2] {
         var cx = ix * GRID + offsets[ox]
         var cy = iy * GRID + offsets[oy]
-        var mag = Cylinder(d: MAGNET_D, h: MAGNET_H).Move(x: cx, y: cy)
-        var scr = Cylinder(d: SCREW_D, h: SCREW_H).Move(x: cx, y: cy)
+        # Cylinder is corner-anchored (bbox-min at the move point), so shift each
+        # bore by its own radius to center it on (cx, cy) — otherwise the holes
+        # land a radius off-position and the magnet/screw bores aren't concentric.
+        var mag = Cylinder(d: MAGNET_D, h: magH).Move(x: cx - MAGNET_D / 2, y: cy - MAGNET_D / 2)
+        var scr = Cylinder(d: SCREW_D, h: scrH).Move(x: cx - SCREW_D / 2, y: cy - SCREW_D / 2)
         yield magnets && screws ? mag + scr : (magnets ? mag : scr)
     }
     return fold a, b bores { yield a + b }
@@ -262,7 +288,7 @@ fn Bin.Solid() Solid {
     var result = colorize(s: feet, c: self.footColor) + colorize(s: body, c: self.bodyColor)
 
     if self.lip {
-        var lipPart = StackingLip(x: x, y: y).Move(z: H - BASE_HEIGHT)
+        var lipPart = StackingLip(x: x, y: y).Move(z: H - LIP_HEIGHT)
         result = result + colorize(s: lipPart, c: self.lipColor)
     }
 
