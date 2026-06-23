@@ -288,7 +288,7 @@ fn Bin.Solid() Solid {
     var result = colorize(s: feet, c: self.footColor) + colorize(s: body, c: self.bodyColor)
 
     if self.lip {
-        var lipPart = StackingLip(x: x, y: y).Move(z: H - LIP_HEIGHT)
+        var lipPart = StackingLip(x: x, y: y).Move(z: H)
         result = result + colorize(s: lipPart, c: self.lipColor)
     }
 

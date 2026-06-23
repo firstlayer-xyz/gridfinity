@@ -22,9 +22,9 @@ Pin `@v0.3.0` to a commit SHA or release tag (e.g. `@v0.3.0`).
 ### `Bin{...}.Solid() Solid`
 
 A storage bin, built as a struct and rendered with `.Solid()`. `x, y` are grid
-units (required); `z` is height units — total height is `z × 7 mm` (the stacking
-lip is carved into the top, so it does not add height). Every other field has a
-default.
+units (required); `z` is height units — the body is `z × 7 mm` tall and the
+stacking lip adds `LIP_HEIGHT` (4.4 mm) on top, which a stacked bin's feet drop
+into. Every other field has a default.
 
 ```
 G.Bin{x: 3, y: 1, z: 4, text: "M3",
