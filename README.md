@@ -50,13 +50,16 @@ connects it to the bin keeps `bodyColor`.
 
 ### `Baseplate(x, y, magnets=false, screws=false) Solid`
 
-An `x × y` cell baseplate that bins snap into.
+An `x × y` cell baseplate that bins snap into. Plain, it is a thin "lite" frame.
+Enabling `magnets`/`screws` raises the receptacles onto a solid deck so the
+bores have material to hold the hardware: Ø6.5 mm magnet pockets open at the
+mating floor (under each seated foot) and Ø3 mm screw bores pass through.
 
 ### Building blocks (exposed for composing custom parts)
 
 `footSolid`, `BinBase`, `cellPockets`, `StackingLip`, `Compartments`,
-`mountHoles`, `scoopRamp`, `labelTab`, `labelGlyphs`, `roundedPrism`,
-`colorize`.
+`mountHoles`, `baseplateHoles`, `scoopRamp`, `labelTab`, `labelGlyphs`,
+`roundedPrism`, `colorize`.
 
 ### Constants
 
